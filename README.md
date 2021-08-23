@@ -1,8 +1,8 @@
-# Customisable Seed Finder
+# Customizable Seed Finder
 
 ## Install Instructions
 
-Download the published file under publications, open a terminal in the location of the file, and execute `java -jar CustimizableSeedFinder.jar`.
+Download the published file under publications, open a terminal in the location of the file, and execute `java -jar CustomizableSeedFinder.jar`.
 
 It will then ask for your preferences on the seed to find, after which it will generate some stats it needs to run (which might take multiple minutes), and start seedfinding.
 
