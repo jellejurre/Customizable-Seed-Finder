@@ -16,8 +16,7 @@ public class Main {
     static long StructureSeed = 0;
     static int index = 0;
     static ArrayList<Long> StructureSeeds;
-    static WBADThreadPool pool =
-        new WBADThreadPool((int) Math.ceil(Runtime.getRuntime().availableProcessors() * 3 / 4d));
+    static WBADThreadPool pool;
     static Object lock = new Object();
     static boolean setup = false;
 

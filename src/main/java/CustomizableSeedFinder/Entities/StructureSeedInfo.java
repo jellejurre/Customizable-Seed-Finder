@@ -12,7 +12,6 @@ public class StructureSeedInfo {
     public BPos[] fortressLocations = new BPos[4];
     public BPos[] bastionLocations = new BPos[4];
     public BPos[] fortressOverworldLocations = new BPos[4];
-    public BPos[] strongholdLocations = new BPos[4];
     public boolean[] strongholdsCloseEnough = new boolean[3];
     public StructureSeedInfo(long structureSeed, ChunkRand chunkRand){
         this.chunkRand = chunkRand;

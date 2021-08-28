@@ -1,19 +1,25 @@
 package CustomizableSeedFinder;
 
-import static CustomizableSeedFinder.Config.checkStrongholdDistance;
 import static CustomizableSeedFinder.Config.entryDistance;
 import static CustomizableSeedFinder.Config.entryMethod;
 import static CustomizableSeedFinder.Config.fortress;
+import static CustomizableSeedFinder.Config.needStongholdDistance;
+import static CustomizableSeedFinder.Config.portal;
+import static CustomizableSeedFinder.Config.treasure;
 import static CustomizableSeedFinder.Util.Util.isArrayEmpty;
 import static CustomizableSeedFinder.Util.Util.isArrayFalse;
 
 
 import CustomizableSeedFinder.Entities.StructureSeedInfo;
 import CustomizableSeedFinder.Util.BastionFeatures;
+import CustomizableSeedFinder.Util.SpiralIterator;
+import java.util.Arrays;
+import java.util.Iterator;
 import kaptainwutax.featureutils.loot.LootContext;
 import kaptainwutax.featureutils.loot.MCLootTables;
 import kaptainwutax.featureutils.loot.item.ItemStack;
 import kaptainwutax.featureutils.structure.RegionStructure;
+import kaptainwutax.featureutils.structure.generator.structure.BuriedTreasureGenerator;
 import kaptainwutax.mcutils.rand.ChunkRand;
 import kaptainwutax.mcutils.util.math.DistanceMetric;
 import kaptainwutax.mcutils.util.pos.BPos;
@@ -54,37 +60,83 @@ public class StructureSeedFunctions {
     public static void generateIronSpawns(StructureSeedInfo seedInfo) {
         BPos[] output = new BPos[4];
         int i = 0;
-        for (int x = -1; x <= 0; x++) {
-            for (int z = -1; z <= 0; z++) {
-                output[i++] = Config.ironMethod.getStructure()
-                    .getInRegion(seedInfo.structureSeed, x, z, seedInfo.chunkRand).toBlockPos();
-            }
+        switch(Config.ironMethod) {
+            case NONE:
+                for (int j = 0; j < 4; j++) {
+                    output[j] = new BPos(0, 0, 0);
+                }
+                break;
+            case MAPLESS:
+                MCLootTables.BURIED_TREASURE_CHEST.apply(Config.version);
+                Iterator<CPos> iterator = new SpiralIterator<CPos>(new CPos(0, 0),
+                    new CPos(-100, -100), new CPos(100, 100), 1,
+                    new SpiralIterator.Builder<CPos>() {
+                        @Override
+                        public CPos build(int x, int y, int z) {
+                            return new CPos(x, z);
+                        }
+                    }).iterator();
+                while(i<4) {
+                    CPos next = iterator.next();
+                    while(Arrays.stream(output).anyMatch(next::equals)){
+                        next = iterator.next();
+                    }
+                    CPos cPos = Config.ironMethod.getStructure().getInRegion(seedInfo.structureSeed, next.getX(), next.getZ(), seedInfo.chunkRand);
+                    if(cPos!=null) {
+                        BPos pos = cPos.toBlockPos();
+                        seedInfo.chunkRand
+                            .setDecoratorSeed(seedInfo.structureSeed, pos.getX(), pos.getZ(),
+                                treasure.getDecorationSalt(), Config.version);
+                        LootContext a1 =
+                            new LootContext(seedInfo.chunkRand.nextLong(), Config.version);
+                        int iron_count = MCLootTables.BURIED_TREASURE_CHEST.generate(a1)
+                            .stream()
+                            .filter(e -> e != null && e.getItem() != null)
+                            .filter(e -> e.getItem().getName().equals("iron_ingot"))
+                            .mapToInt(ItemStack::getCount).sum();
+                        if (iron_count >= entryMethod.getIronCount()) {
+                            output[i++] = pos;
+                        }
+                    }
+                }
+                break;
+            case RUINED_PORTAL:
+                MCLootTables.RUINED_PORTAL_CHEST.apply(Config.version);
+                for (int x = -1; x <= 0; x++) {
+                    for (int z = -1; z <= 0; z++) {
+                        BPos pos = Config.ironMethod.getStructure().getInRegion(seedInfo.structureSeed, x, z, seedInfo.chunkRand).toBlockPos();
+                        seedInfo.chunkRand
+                            .setDecoratorSeed(seedInfo.structureSeed, pos.getX(),
+                                pos.getZ(), portal.getDecorationSalt(),
+                                Config.version);
+                        LootContext a1 = new LootContext(seedInfo.chunkRand.nextLong(), Config.version);
+                        int nugget_count = MCLootTables.RUINED_PORTAL_CHEST.generate(a1)
+                            .stream()
+                            .filter(e -> e != null && e.getItem() != null)
+                            .filter(e -> e.getItem().getName().equals("iron_nugget"))
+                            .mapToInt(ItemStack::getCount).sum();
+                        if (nugget_count >= entryMethod.getIronCount() * 9) {
+                            output[i++] = pos;
+                        }
+                    }
+                }
+                break;
+            default:
+                for (int x = -1; x <= 0; x++) {
+                    for (int z = -1; z <= 0; z++) {
+                        output[i++] = Config.ironMethod.getStructure()
+                            .getInRegion(seedInfo.structureSeed, x, z, seedInfo.chunkRand).toBlockPos();
+                    }
+                }
+                break;
         }
         seedInfo.ironLocations = output;
-        if (Config.ironMethod == Config.IRON_METHODS.RUINED_PORTAL) {
-            MCLootTables.RUINED_PORTAL_CHEST.apply(Config.version);
-            for (i = 0; i < 4; i++) {
-                seedInfo.chunkRand
-                    .setDecoratorSeed(seedInfo.structureSeed, seedInfo.ironLocations[i].getX(),
-                        seedInfo.ironLocations[i].getZ(), 40005,
-                        Config.version);
-                LootContext a1 = new LootContext(seedInfo.chunkRand.nextLong(), Config.version);
-                int nugget_count = MCLootTables.RUINED_PORTAL_CHEST.generate(a1)
-                    .stream()
-                    .filter(e -> e != null && e.getItem() != null)
-                    .filter(e -> e.getItem().getName().equals("iron_nugget"))
-                    .mapToInt(ItemStack::getCount).sum();
-                if (nugget_count < entryMethod.getIronCount() * 9) {
-                    seedInfo.ironLocations[i] = null;
-                }
-            }
-        }
     }
 
     public static void generateNetherEntries(StructureSeedInfo structureSeedInfo) {
         switch(entryMethod){
             case RUINED_PORTAL:
-                findNearest(structureSeedInfo.structureSeed, structureSeedInfo.ironLocations, Config.rp,
+                structureSeedInfo.entryLocations = findNearest(structureSeedInfo.structureSeed, structureSeedInfo.ironLocations, Config.portal,
                     structureSeedInfo.chunkRand, entryDistance);
                 break;
             default:
@@ -220,7 +272,7 @@ public class StructureSeedFunctions {
 
         convertToOverworldCoords(structureSeedInfo);
 
-        if (checkStrongholdDistance) {
+        if (needStongholdDistance) {
             findClosestStronghold(structureSeedInfo);
 
             if (isArrayFalse(structureSeedInfo.strongholdsCloseEnough)) {
