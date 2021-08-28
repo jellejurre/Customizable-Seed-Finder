@@ -42,22 +42,6 @@ public class TestTask implements Runnable{
                 info =
                 new WorldSeedInfo(StructureSeed.toWorldSeed(structureInfo.structureSeed, biomeseed),
                     structureInfo);
-            if (function.needsOBS) {
-                info.obs = new OverworldBiomeSource(Config.version, info.seed);
-            }
-            if (function.needsNBS) {
-                info.nbs = new NetherBiomeSource(Config.version, info.seed);
-            }
-            if (function.needsOTG) {
-                info.otg = new OverworldTerrainGenerator(info.obs);
-            }
-            if (function.needsNetherChecker) {
-                info.netherChecker =
-                    new SeedChecker(info.seed, 12, SeedCheckerDimension.NETHER);
-            }
-            if (function.needsOverworldChecker) {
-                info.checker = new SeedChecker(info.seed);
-            }
             int index = 0;
             for (int position = 0; position < info.structures.fortressLocations.length; position++) {
                 if(info.structures.fortressLocations[position]!=null){
@@ -69,7 +53,7 @@ public class TestTask implements Runnable{
                 entries.add(biomeseed);
                 done = true;
             }
-            if(info.shouldContinue==false){
+            if(!info.shouldContinue){
                 done = true;
             }
             times.add(System.nanoTime() - time);

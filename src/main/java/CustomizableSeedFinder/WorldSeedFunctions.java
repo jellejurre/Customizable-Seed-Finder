@@ -10,12 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Collections;
 import java.util.Comparator;
-import kaptainwutax.biomeutils.source.NetherBiomeSource;
-import kaptainwutax.biomeutils.source.OverworldBiomeSource;
 import kaptainwutax.mcutils.rand.seed.StructureSeed;
-import kaptainwutax.terrainutils.terrain.OverworldTerrainGenerator;
-import nl.jellejurre.seedchecker.SeedChecker;
-import nl.jellejurre.seedchecker.SeedCheckerDimension;
 
 public class WorldSeedFunctions {
     public static ArrayList<FilterFunction> OBSchecks = new ArrayList<>();
@@ -35,73 +30,47 @@ public class WorldSeedFunctions {
         List<Integer> entries = Collections.synchronizedList(new ArrayList<>());
         List<Long> times = Collections.synchronizedList(new ArrayList<>());
         System.out.println("Setting up check: "+function.name);
-//        if(function.needsNetherChecker||function.needsOverworldChecker||function==FunctionRepo.strongholdDistance||function==FunctionRepo.portalBiomes||function==FunctionRepo.portalGenerates){
-//            function.cutoff = 2;
-//            function.averageTime = Math.pow(10, 100);
-//        } else {
-            for (int i = 0; i < 100; i++) {
-                Main.pool.execute(new TestTask(entries, times, function));
+        for (int i = 0; i < 100000; i++) {
+            Main.pool.execute(new TestTask(entries, times, function));
+        }
+        while(entries.size()<100&&(System.nanoTime()-startTime<60000000000L)){
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
             }
-            while(Main.pool.getActiveCount()>0&&(System.nanoTime()-startTime<60000000000L)){
-                try {
-                    Thread.sleep(10);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }
-            Main.pool.shutdown();
-            Main.pool = new WBADThreadPool((int) Math.ceil(Runtime.getRuntime().availableProcessors() * 3 / 4d));
-            entries.sort(null);
-            if(entries.size()==0){
-                System.out.println("Check too rare to assign values: "+function.name);
-                System.out.println("Assigning arbitrary values cutoff 5 and average time 1000000000000 ns");
-                function.cutoff = 5;
-                function.averageTime = Math.pow(10, 12);
-            } else {
-                function.cutoff = entries.get(entries.size() * 3 / 4) ;
-                function.averageTime = times.stream().mapToDouble(d -> d).average().getAsDouble();
-            }
-            System.out.println("Cutoff for check " +
-                function.name + ": " + function.cutoff +
-                ", average time: " + ((long)function.averageTime) + " ns");
-//        }
-        if(function.needsNetherChecker){
-            NetherCheckerChecks.add(function);
-            return;
         }
-        if(function.needsOverworldChecker) {
-            CheckerChecks.add(function);
-            return;
+        Main.pool.getExecutor().shutdownNow();
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
         }
-        if(function.needsOTG){
-            OTGchecks.add(function);
-            return;
+        Main.pool = new WBADThreadPool(Config.threadCount);
+        entries.sort(null);
+        if(entries.size()==0){
+            System.out.println("Check too rare to assign values: "+function.name);
+            System.out.println("Assigning arbitrary values cutoff 5 and average time 1000000000000 ns");
+            function.cutoff = 5;
+            function.averageTime = Math.pow(10, 12);
+        } else {
+            function.cutoff = entries.get(entries.size() * 3 / 4) ;
+            function.averageTime = times.stream().mapToDouble(d -> d).average().getAsDouble();
         }
-        if(function.needsNBS){
-            NBSchecks.add(function);
-            return;
-        }
-        OBSchecks.add(function);
+        System.out.println("Cutoff for check " +
+            function.name + ": " + function.cutoff +
+            ", average time: " + ((long)function.averageTime) + " ns");
+        allChecks.add(function);
     }
 
     public static void finishSetup(){
-        allChecks = new ArrayList<>();
         Comparator<FilterFunction> comparator = new Comparator<FilterFunction>() {
             @Override
             public int compare(FilterFunction o1, FilterFunction o2) {
                 return (int) (o1.averageTime - o2.averageTime);
             }
         };
-        OBSchecks.sort(comparator);
-        NBSchecks.sort(comparator);
-        OTGchecks.sort(comparator);
-        CheckerChecks.sort(comparator);
-        NetherCheckerChecks.sort(comparator);
-        allChecks.addAll(OBSchecks);
-        allChecks.addAll(NBSchecks);
-        allChecks.addAll(OTGchecks);
-        allChecks.addAll(CheckerChecks);
-        allChecks.addAll(NetherCheckerChecks);
+        allChecks.sort(comparator);
     }
 
     public static void checkSeed(StructureSeedInfo structureInfo){
@@ -114,21 +83,6 @@ public class WorldSeedFunctions {
             for (int i = 0; i < 4; i++) {
                 for (int j = 0; j < allChecks.size(); j++) {
                     FilterFunction function = allChecks.get(j);
-                    if(function.needsOBS&&info.obs==null){
-                        info.obs = new OverworldBiomeSource(Config.version, info.seed);
-                    }
-                    if(function.needsNBS&&info.nbs==null){
-                        info.nbs = new NetherBiomeSource(Config.version, info.seed);
-                    }
-                    if(function.needsOTG&&info.otg==null){
-                        info.otg = new OverworldTerrainGenerator(info.obs);
-                    }
-                    if(function.needsOverworldChecker&&info.checker==null){
-                        info.checker = new SeedChecker(info.seed);
-                    }
-                    if(function.needsNetherChecker&&info.netherChecker==null){
-                        info.netherChecker = new SeedChecker(info.seed, 12, SeedCheckerDimension.NETHER);;
-                    }
                     if(function.predicate.test(i, info)){
                        checkCounts[j][i]++;
                     } else {
